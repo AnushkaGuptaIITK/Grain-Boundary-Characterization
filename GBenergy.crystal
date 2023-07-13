@@ -1,0 +1,61 @@
+# Obtaining the relaxed structure after energy minimization (CG), NVE, NVT, and NPT
+
+units            metal         
+echo             both
+atom_style       atomic
+dimension        3
+boundary         p p p 
+
+# read the input file
+read_data        input_G-113_0_mod.3_0
+
+# integration timestep
+timestep         0.002  
+
+mass 1 39.948
+
+# LJ potential
+pair_style lj/smooth 7.5 8.5
+pair_coeff 1 1 0.01042 3.4
+
+
+
+
+velocity         all create 100 1000000 rot yes mom yes dist gaussian
+
+# Energy minimization (CG)
+min_style cg 
+minimize 1e-15 1e-15 5000 5000 
+
+thermo           200
+thermo_style     custom step temp vol press etotal
+
+# NVE equilibration
+fix              fnve all nve
+run              50000
+unfix            fnve
+
+# NVT equilibration
+fix              fnvt all nvt temp 50 50 0.1
+run              50000
+unfix            fnvt
+
+# NPT equilibration
+fix              fnpt all npt temp 50 50 0.1 aniso 0.0 0.0 1.0
+run              500000        
+unfix            fnpt
+
+# Dump relaxed structure for visualization in OVITO
+compute cXU all property/atom xu yu zu
+fix f1 all ave/atom 1 1000 5000 c_cXU[1] c_cXU[2] c_cXU[3]
+dump d1 all custom 5000 relaxed_structure.lammpstrj id type x y z f_f1[1] f_f1[2] f_f1[3]
+unfix f1
+undump d1
+
+
+# Prints energy of structure and GB area
+variable         tope equal "pe+ke"
+variable         gbarea equal "ly * lz * 2"
+
+print "Area is ${gbarea}"
+print "Energy is ${tope} J/m^2"
